@@ -19,7 +19,7 @@ import dashboardRouter from './routes/dashboard.js';
 import productRouter from './routes/product.js';
 
 
-const port = process.env.PORT || 3000;
+const port = Number(process.env.PORT) || 3000;
 
 const start = async () => {
   const app = express();
@@ -96,13 +96,17 @@ const start = async () => {
   app.use('/api/auth', authRouter);
   app.use('/api/products', productRouter);
 
-  // Start server immediately to fix port detection
-  app.listen(port, () => {
-    console.log(`Server started on port ${port}`);
+  // Start server - bind to 0.0.0.0 for Render deployment
+  const server = app.listen(port, '0.0.0.0', () => {
+    console.log(`Server started on port ${port} (bound to 0.0.0.0)`);
     if (admin) {
-      console.log(`AdminJS available at http://localhost:${port}${admin.options.rootPath}`);
+      console.log(`AdminJS available at http://0.0.0.0:${port}${admin.options.rootPath}`);
     }
   });
+
+  // Configure server timeouts for Render (prevent 502 errors)
+  server.keepAliveTimeout = 120000; // 120 seconds
+  server.headersTimeout = 120000; // 120 seconds
 };
 
 start().catch((error) => {
