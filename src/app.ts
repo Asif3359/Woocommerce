@@ -4,6 +4,7 @@ dotenv.config();
 import express from 'express';
 import * as url from 'url';
 import path from 'path';
+import fs from 'fs';
 import AdminJS from 'adminjs';
 import morgan from 'morgan';
 import { buildAuthenticatedRouter } from '@adminjs/express';
@@ -27,6 +28,7 @@ const start = async () => {
   app.use(express.json());
   // Serve static assets from ../public (for AdminJS custom CSS)
   const __dirname = url.fileURLToPath(new URL('.', import.meta.url));
+  const projectRoot = path.resolve(__dirname, '..');
   app.use(express.static(path.join(__dirname, '../public')));
   
   // Initialize database first
@@ -56,6 +58,22 @@ const start = async () => {
   // Initialize AdminJS (non-blocking)
   let admin: AdminJS | null = null;
   try {
+    // Ensure .adminjs bundle directory exists in multiple possible locations
+    // AdminJS may look for bundles relative to source files or project root
+    const possibleBundleDirs = [
+      path.join(projectRoot, '.adminjs'),
+      path.join(projectRoot, 'src', '.adminjs'),
+      path.join(__dirname, '.adminjs'),
+      path.join(process.cwd(), '.adminjs'),
+      path.join(process.cwd(), 'src', '.adminjs'),
+    ];
+    
+    for (const bundleDir of possibleBundleDirs) {
+      if (!fs.existsSync(bundleDir)) {
+        fs.mkdirSync(bundleDir, { recursive: true });
+      }
+    }
+
     admin = new AdminJS(options);
 
     if (process.env.NODE_ENV === 'production') {

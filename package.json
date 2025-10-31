@@ -5,7 +5,7 @@
   "scripts": {
     "build": "tsc",
     "lint": "eslint \"src\"",
-    "start": "node dist/app",
+    "start": "node --max-old-space-size=1024 dist/app",
     "dev": "dotenv -c '.env' -- nodemon --watch src --watch admin --ext ts,tsx,js,jsx --exec tsx src/app.ts"
   },
   "dependencies": {
