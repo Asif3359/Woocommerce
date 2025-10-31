@@ -19,22 +19,22 @@ import authRouter from './routes/auth.js';
 import dashboardRouter from './routes/dashboard.js';
 import productRouter from './routes/product.js';
 
-
 const port = Number(process.env.PORT) || 3000;
 
 const start = async () => {
   const app = express();
-  // app.use(morgan('dev'));
   app.use(express.json());
-  // Serve static assets from ../public (for AdminJS custom CSS)
+  
   const __dirname = url.fileURLToPath(new URL('.', import.meta.url));
   const projectRoot = path.resolve(__dirname, '..');
-  app.use(express.static(path.join(__dirname, '../public')));
   
+  // Serve static files
+  app.use(express.static(path.join(__dirname, '../public')));
+
   // Initialize database first
   await initializeDb();
 
-  // Use MongoDB session store for production
+  // Session configuration
   app.use(
     session({
       secret: process.env.COOKIE_SECRET as string,
@@ -42,47 +42,37 @@ const start = async () => {
       saveUninitialized: false,
       store: MongoStore.create({
         mongoUrl: process.env.DATABASE_URL as string,
-        ttl: 14 * 24 * 60 * 60, // 14 days
+        ttl: 14 * 24 * 60 * 60,
       }),
     }),
   );
+  
   app.use(passport.initialize());
   app.use(passport.session());
-  app.use(express.json());
 
-  // Test route - available immediately
+  // Test route
   app.get('/', (req, res) => {
     res.json({ message: 'Test route is working!', timestamp: new Date().toISOString() });
   });
 
-  // Initialize AdminJS (non-blocking)
+  // Initialize AdminJS with production-safe approach
   let admin: AdminJS | null = null;
+  
   try {
-    // Ensure .adminjs bundle directory exists in multiple possible locations
-    // AdminJS may look for bundles relative to source files or project root
-    const possibleBundleDirs = [
-      path.join(projectRoot, '.adminjs'),
-      path.join(projectRoot, 'src', '.adminjs'),
-      path.join(__dirname, '.adminjs'),
-      path.join(process.cwd(), '.adminjs'),
-      path.join(process.cwd(), 'src', '.adminjs'),
-    ];
-    
-    for (const bundleDir of possibleBundleDirs) {
-      if (!fs.existsSync(bundleDir)) {
-        fs.mkdirSync(bundleDir, { recursive: true });
-      }
-    }
+    // CRITICAL FIX: Disable bundling in production or ensure bundle exists
+    const adminOptions = {
+      ...options,
+      bundling: {
+        enabled: process.env.NODE_ENV === 'development',
+      },
+    };
 
-    admin = new AdminJS(options);
+    admin = new AdminJS(adminOptions);
 
+    // In production, don't use watch() - rely on pre-built bundle
     if (process.env.NODE_ENV === 'production') {
-      // In production, initialize AdminJS asynchronously - don't block server startup
-      admin.initialize().then(() => {
-        console.log('AdminJS initialized successfully');
-      }).catch((err) => {
-        console.error('Error initializing AdminJS:', err);
-      });
+      console.log('Production mode: Using pre-built AdminJS bundle');
+      // This will use the bundle that should be built during npm run build
     } else {
       admin.watch();
     }
@@ -103,28 +93,30 @@ const start = async () => {
     );
 
     app.use(admin.options.rootPath, router);
-    // Dashboard API routes (protected)
-    app.use('/api/dashboard', dashboardRouter);
+    console.log(`AdminJS routes mounted at ${admin.options.rootPath}`);
   } catch (error) {
     console.error('Error setting up AdminJS:', error);
-    // Server still runs even if AdminJS fails
+    // Continue without AdminJS - don't crash the server
   }
 
-  // Public API routes - available immediately
+  // API routes
   app.use('/api/auth', authRouter);
   app.use('/api/products', productRouter);
+  
+  if (admin) {
+    app.use('/api/dashboard', dashboardRouter);
+  }
 
-  // Start server - bind to 0.0.0.0 for Render deployment
+  // Start server
   const server = app.listen(port, '0.0.0.0', () => {
-    console.log(`Server started on port ${port} (bound to 0.0.0.0)`);
+    console.log(`Server started on port ${port}`);
     if (admin) {
       console.log(`AdminJS available at http://0.0.0.0:${port}${admin.options.rootPath}`);
     }
   });
 
-  // Configure server timeouts for Render (prevent 502 errors)
-  server.keepAliveTimeout = 120000; // 120 seconds
-  server.headersTimeout = 120000; // 120 seconds
+  server.keepAliveTimeout = 120000;
+  server.headersTimeout = 120000;
 };
 
 start().catch((error) => {

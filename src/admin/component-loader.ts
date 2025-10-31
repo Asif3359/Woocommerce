@@ -1,19 +1,26 @@
 import { ComponentLoader } from 'adminjs';
 import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const componentLoader = new ComponentLoader();
 
-// // AdminJS ComponentLoader resolves relative paths from the component-loader file location
-// // This causes issues in production where the file is in dist/admin/ but we need src/admin/
-// // Use process.cwd() to get the project root and build absolute paths
-// const projectRoot = process.cwd();
+// Use absolute paths that work in both development and production
+const getComponentPath = (componentName: string) => {
+  // In production (Render), files are in dist/, but we need to reference source components
+  // for AdminJS bundling
+  if (process.env.NODE_ENV === 'production') {
+    // For production build, use source path relative to project root
+    return path.join(process.cwd(), 'src', 'admin', 'components', componentName);
+  }
+  
+  // In development, use relative path from this file
+  return path.join(__dirname, 'components', componentName);
+};
 
-// // Path to source components - AdminJS needs TSX source files to bundle React components
-// // In production, this must be an absolute path to avoid resolution issues
-// const srcPath = path.resolve(projectRoot, 'src', 'admin', 'components');
-
-// // Use absolute paths so AdminJS doesn't resolve relative to component-loader location
-// componentLoader.override('Login', path.resolve(srcPath, 'Login'));
-// componentLoader.add('Dashboard', path.resolve(srcPath, 'Dashboard'));
+componentLoader.override('Login', getComponentPath('Login'));
+componentLoader.add('Dashboard', getComponentPath('Dashboard'));
 
 export default componentLoader;
