@@ -11,7 +11,7 @@ Notes:
 curl -i \
   -H "Content-Type: application/json" \
   -X POST http://localhost:3000/api/auth/register \
-  -d '{"email":"alice@example.com","password":"secret123","name":"Alice"}'
+  -d '{"email":"asifahammednishst@gmail.com","password":"404asif404","name":"Asif Ahammed"}'
 ```
 
 ---
