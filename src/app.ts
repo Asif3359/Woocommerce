@@ -1,14 +1,18 @@
+import dotenv from 'dotenv';
+dotenv.config();
+
 import express from 'express';
 import * as url from 'url';
 import path from 'path';
 import AdminJS from 'adminjs';
 import morgan from 'morgan';
 import { buildAuthenticatedRouter } from '@adminjs/express';
+import session from 'express-session';
+import MongoStore from 'connect-mongo';
 
 import provider from './admin/auth-provider.js';
 import options from './admin/options.js';
 import initializeDb from './db/index.js';
-import session from 'express-session';
 import passport from './auth/passport.js';
 import authRouter from './routes/auth.js';
 import dashboardRouter from './routes/dashboard.js';
@@ -24,57 +28,84 @@ const start = async () => {
   // Serve static assets from ../public (for AdminJS custom CSS)
   const __dirname = url.fileURLToPath(new URL('.', import.meta.url));
   app.use(express.static(path.join(__dirname, '../public')));
+  
+  // Initialize database first
+  await initializeDb();
+
+  // Use MongoDB session store for production
   app.use(
     session({
       secret: process.env.COOKIE_SECRET as string,
       resave: false,
       saveUninitialized: false,
+      store: MongoStore.create({
+        mongoUrl: process.env.DATABASE_URL as string,
+        ttl: 14 * 24 * 60 * 60, // 14 days
+      }),
     }),
   );
   app.use(passport.initialize());
   app.use(passport.session());
   app.use(express.json());
 
-  await initializeDb();
-
-  // Test route
+  // Test route - available immediately
   app.get('/', (req, res) => {
     res.json({ message: 'Test route is working!', timestamp: new Date().toISOString() });
   });
 
-  const admin = new AdminJS(options);
+  // Initialize AdminJS (non-blocking)
+  let admin: AdminJS | null = null;
+  try {
+    admin = new AdminJS(options);
 
-  if (process.env.NODE_ENV === 'production') {
-    await admin.initialize();
-  } else {
-    admin.watch();
+    if (process.env.NODE_ENV === 'production') {
+      // In production, initialize AdminJS asynchronously - don't block server startup
+      admin.initialize().then(() => {
+        console.log('AdminJS initialized successfully');
+      }).catch((err) => {
+        console.error('Error initializing AdminJS:', err);
+      });
+    } else {
+      admin.watch();
+    }
+
+    const router = buildAuthenticatedRouter(
+      admin,
+      {
+        cookiePassword: process.env.COOKIE_SECRET,
+        cookieName: 'adminjs',
+        provider,
+      },
+      null,
+      {
+        secret: process.env.COOKIE_SECRET,
+        saveUninitialized: true,
+        resave: true,
+      },
+    );
+
+    app.use(admin.options.rootPath, router);
+    // Dashboard API routes (protected)
+    app.use('/api/dashboard', dashboardRouter);
+  } catch (error) {
+    console.error('Error setting up AdminJS:', error);
+    // Server still runs even if AdminJS fails
   }
 
-  const router = buildAuthenticatedRouter(
-    admin,
-    {
-      cookiePassword: process.env.COOKIE_SECRET,
-      cookieName: 'adminjs',
-      provider,
-    },
-    null,
-    {
-      secret: process.env.COOKIE_SECRET,
-      saveUninitialized: true,
-      resave: true,
-    },
-  );
-
-  app.use(admin.options.rootPath, router);
-  // Public API routes
+  // Public API routes - available immediately
   app.use('/api/auth', authRouter);
-  // Dashboard API routes
-  app.use('/api/dashboard', dashboardRouter);
   app.use('/api/products', productRouter);
 
+  // Start server immediately to fix port detection
   app.listen(port, () => {
-    console.log(`AdminJS available at http://localhost:${port}${admin.options.rootPath}`);
+    console.log(`Server started on port ${port}`);
+    if (admin) {
+      console.log(`AdminJS available at http://localhost:${port}${admin.options.rootPath}`);
+    }
   });
 };
 
-start();
+start().catch((error) => {
+  console.error('Failed to start server:', error);
+  process.exit(1);
+});
