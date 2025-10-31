@@ -20,96 +20,149 @@ import productRouter from './routes/product.js';
 
 
 const port = Number(process.env.PORT) || 3000;
+const app = express();
 
-const start = async () => {
-  const app = express();
-  // app.use(morgan('dev'));
-  app.use(express.json());
-  // Serve static assets from ../public (for AdminJS custom CSS)
-  const __dirname = url.fileURLToPath(new URL('.', import.meta.url));
-  app.use(express.static(path.join(__dirname, '../public')));
-  
-  // Initialize database first
-  await initializeDb();
+// Initialize app setup asynchronously
+let appInitialized = false;
+let initPromise: Promise<void> | null = null;
 
-  // Use MongoDB session store for production
-  app.use(
-    session({
-      secret: process.env.COOKIE_SECRET as string,
-      resave: false,
-      saveUninitialized: false,
-      store: MongoStore.create({
-        mongoUrl: process.env.DATABASE_URL as string,
-        ttl: 14 * 24 * 60 * 60, // 14 days
-      }),
-    }),
-  );
-  app.use(passport.initialize());
-  app.use(passport.session());
-  app.use(express.json());
+const initializeApp = async () => {
+  if (appInitialized) return;
+  if (initPromise) return initPromise;
 
-  // Test route - available immediately
-  app.get('/', (req, res) => {
-    res.json({ message: 'Test route is working!', timestamp: new Date().toISOString() });
-  });
+  initPromise = (async () => {
+    try {
+      // Check required environment variables
+      if (!process.env.DATABASE_URL) {
+        throw new Error('DATABASE_URL environment variable is required');
+      }
+      if (!process.env.COOKIE_SECRET) {
+        throw new Error('COOKIE_SECRET environment variable is required');
+      }
 
-  // Initialize AdminJS (non-blocking)
-  let admin: AdminJS | null = null;
-  try {
-    admin = new AdminJS(options);
+      // app.use(morgan('dev'));
+      app.use(express.json());
+      // Serve static assets from ../public (for AdminJS custom CSS)
+      const __dirname = url.fileURLToPath(new URL('.', import.meta.url));
+      app.use(express.static(path.join(__dirname, '../public')));
+      
+      // Initialize database first
+      await initializeDb();
 
-    if (process.env.NODE_ENV === 'production') {
-      // In production, initialize AdminJS asynchronously - don't block server startup
-      admin.initialize().then(() => {
-        console.log('AdminJS initialized successfully');
-      }).catch((err) => {
-        console.error('Error initializing AdminJS:', err);
+      // Use MongoDB session store for production
+      app.use(
+        session({
+          secret: process.env.COOKIE_SECRET as string,
+          resave: false,
+          saveUninitialized: false,
+          store: MongoStore.create({
+            mongoUrl: process.env.DATABASE_URL as string,
+            ttl: 14 * 24 * 60 * 60, // 14 days
+          }),
+        }),
+      );
+      app.use(passport.initialize());
+      app.use(passport.session());
+      app.use(express.json());
+
+      // Test route - available immediately
+      app.get('/', (req, res) => {
+        res.json({ message: 'Test route is working!', timestamp: new Date().toISOString() });
       });
-    } else {
-      admin.watch();
+
+      // Initialize AdminJS (non-blocking)
+      let admin: AdminJS | null = null;
+      try {
+        admin = new AdminJS(options);
+
+        if (process.env.NODE_ENV === 'production') {
+          // In production, initialize AdminJS asynchronously - don't block server startup
+          admin.initialize().then(() => {
+            console.log('AdminJS initialized successfully');
+          }).catch((err) => {
+            console.error('Error initializing AdminJS:', err);
+          });
+        } else {
+          admin.watch();
+        }
+
+        const router = buildAuthenticatedRouter(
+          admin,
+          {
+            cookiePassword: process.env.COOKIE_SECRET,
+            cookieName: 'adminjs',
+            provider,
+          },
+          null,
+          {
+            secret: process.env.COOKIE_SECRET,
+            saveUninitialized: true,
+            resave: true,
+          },
+        );
+
+        app.use(admin.options.rootPath, router);
+        // Dashboard API routes (protected)
+        app.use('/api/dashboard', dashboardRouter);
+      } catch (error) {
+        console.error('Error setting up AdminJS:', error);
+        // Server still runs even if AdminJS fails
+      }
+
+      // Public API routes - available immediately
+      app.use('/api/auth', authRouter);
+      app.use('/api/products', productRouter);
+
+      appInitialized = true;
+    } catch (error) {
+      console.error('Failed to initialize app:', error);
+      throw error;
     }
+  })();
 
-    const router = buildAuthenticatedRouter(
-      admin,
-      {
-        cookiePassword: process.env.COOKIE_SECRET,
-        cookieName: 'adminjs',
-        provider,
-      },
-      null,
-      {
-        secret: process.env.COOKIE_SECRET,
-        saveUninitialized: true,
-        resave: true,
-      },
-    );
-
-    app.use(admin.options.rootPath, router);
-    // Dashboard API routes (protected)
-    app.use('/api/dashboard', dashboardRouter);
-  } catch (error) {
-    console.error('Error setting up AdminJS:', error);
-    // Server still runs even if AdminJS fails
-  }
-
-  // Public API routes - available immediately
-  app.use('/api/auth', authRouter);
-  app.use('/api/products', productRouter);
-
-  // Start server - bind to 0.0.0.0 for Render deployment
-  const server = app.listen(port, '0.0.0.0', () => {
-    console.log(`Server started on port ${port} (bound to 0.0.0.0)`);
-    if (admin) {
-      console.log(`AdminJS available at http://0.0.0.0:${port}${admin.options.rootPath}`);
-    }
-  });
-
-  // Configure server timeouts for Render (prevent 502 errors)
-  server.keepAliveTimeout = 120000; // 120 seconds
-  server.headersTimeout = 120000; // 120 seconds
+  return initPromise;
 };
 
-start().catch((error) => {
-  console.error('Failed to start server:', error);
-  process.exit(1);
-});
+// Export handler for Vercel serverless functions
+let handler: any = null;
+
+const getHandler = async () => {
+  if (!handler) {
+    await initializeApp();
+    handler = app;
+  }
+  return handler;
+};
+
+export default async (req: any, res: any) => {
+  try {
+    const expressApp = await getHandler();
+    expressApp(req, res);
+  } catch (error) {
+    console.error('Handler error:', error);
+    if (!res.headersSent) {
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+};
+
+// For traditional server deployment (Render, etc.)
+if (!process.env.VERCEL && !process.env.VERCEL_ENV) {
+  const start = async () => {
+    await initializeApp();
+
+    // Start server - bind to 0.0.0.0 for Render deployment
+    const server = app.listen(port, '0.0.0.0', () => {
+      console.log(`Server started on port ${port} (bound to 0.0.0.0)`);
+    });
+
+    // Configure server timeouts for Render (prevent 502 errors)
+    server.keepAliveTimeout = 120000; // 120 seconds
+    server.headersTimeout = 120000; // 120 seconds
+  };
+
+  start().catch((error) => {
+    console.error('Failed to start server:', error);
+    process.exit(1);
+  });
+}
