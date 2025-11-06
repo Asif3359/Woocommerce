@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 import { Database, Resource } from '@adminjs/mongoose';
 import AdminJS from 'adminjs';
+import Product from './product.js';
 
 AdminJS.registerAdapter({ Database, Resource });
 
@@ -9,7 +10,7 @@ const initialize = async () => {
   if (!databaseUrl) {
     throw new Error('DATABASE_URL environment variable is not set');
   }
-  
+
   try {
     const db = await mongoose.connect(databaseUrl);
     console.log('Database connected successfully');

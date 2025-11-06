@@ -15,10 +15,12 @@ const ProductSchema = new Schema(
     price: {
       type: Number,
       required: true,
+      min: 0,
     },
-    quantity: {
+    originalPrice: {
       type: Number,
       required: true,
+      min: 0,
     },
     image: {
       type: String,
@@ -26,6 +28,7 @@ const ProductSchema = new Schema(
       trim: true,
     },
     category: {
+      enum: ['Vegetable', 'Fruits', 'Beverages', 'Grocery', 'Edible oil', 'Household', 'Babycare'],
       type: String,
       required: true,
       trim: true,
@@ -35,6 +38,25 @@ const ProductSchema = new Schema(
       required: true,
       trim: true,
     },
+    rating: {
+      type: Number,
+      min: 0,
+      max: 5,
+      default: 0,
+    },
+    reviews: {
+      type: Number,
+      min: 0,
+      default: 0,
+    },
+    inStock: {
+      type: Boolean,
+      default: true,
+    },
+    features: [{
+      type: String,
+      trim: true,
+    }],
     isActive: {
       type: Boolean,
       default: true,

@@ -13,7 +13,7 @@ const options: AdminJSOptions = {
     withMadeWithLove: false,
     // Additional branding options
     favicon: '/favicon.ico',
- 
+
   },
   componentLoader,
   rootPath: '/admin',
@@ -30,15 +30,15 @@ const options: AdminJSOptions = {
         },
         properties: {
           passwordHash: { isVisible: false },
-          createdAt: { 
-            isVisible: { list: true, filter: true, show: true, edit: false } 
+          createdAt: {
+            isVisible: { list: true, filter: true, show: true, edit: false }
           },
-          updatedAt: { 
-            isVisible: { list: false, filter: true, show: true, edit: false } 
+          updatedAt: {
+            isVisible: { list: false, filter: true, show: true, edit: false }
           },
-          email: { 
-            isTitle: true, 
-            isRequired: true 
+          email: {
+            isTitle: true,
+            isRequired: true
           },
         },
         actions: {
@@ -113,18 +113,25 @@ const options: AdminJSOptions = {
           icon: 'ShoppingBag',
         },
         properties: {
-          isActive: {
-            isVisible: { list: true, filter: true, show: true, edit: true },
+          _id: {
+            isVisible: false,
           },
           name: {
             isTitle: true,
             isRequired: true,
           },
+          description: {
+            type: 'textarea',
+            isRequired: false,
+          },
           price: {
             isRequired: true,
           },
-          quantity: {
+          originalPrice: {
             isRequired: true,
+          },
+          image: {
+            isRequired: false,
           },
           category: {
             isRequired: true,
@@ -132,27 +139,61 @@ const options: AdminJSOptions = {
           brand: {
             isRequired: true,
           },
-          createdAt: { 
-            isVisible: { list: true, filter: true, show: true, edit: false } 
+          rating: {
+            isRequired: false,
           },
-          updatedAt: { 
-            isVisible: { list: false, filter: true, show: true, edit: false } 
+          reviews: {
+            isRequired: false,
+          },
+          inStock: {
+            isVisible: { list: true, filter: true, show: true, edit: true },
+            isRequired: false,
+          },
+          features: {
+            type: 'mixed',
+            isArray: true,
+            isVisible: { list: false, filter: false, show: true, edit: true },
+          },
+          isActive: {
+            isVisible: { list: true, filter: true, show: true, edit: true },
+          },
+          createdAt: {
+            isVisible: { list: true, filter: true, show: true, edit: false }
+          },
+          updatedAt: {
+            isVisible: { list: false, filter: true, show: true, edit: false }
           },
         },
         actions: {
           new: {
             before: async (request) => {
+              // Ensure rating is between 0-5 if provided
+              if (request.payload.rating !== undefined) {
+                request.payload.rating = Math.max(0, Math.min(5, parseFloat(request.payload.rating)));
+              }
+              // Ensure reviews is non-negative
+              if (request.payload.reviews !== undefined) {
+                request.payload.reviews = Math.max(0, parseInt(request.payload.reviews));
+              }
+              return request;
+            },
+          },
+          edit: {
+            before: async (request) => {
+              // Ensure rating is between 0-5 if provided
+              if (request.payload.rating !== undefined) {
+                request.payload.rating = Math.max(0, Math.min(5, parseFloat(request.payload.rating)));
+              }
+              // Ensure reviews is non-negative
+              if (request.payload.reviews !== undefined) {
+                request.payload.reviews = Math.max(0, parseInt(request.payload.reviews));
+              }
               return request;
             },
           },
         },
-        edit: {
-          before: async (request) => {
-            return request;
-          },
-        },
       },
-    },
+    }
     // Add more resources as needed for AdminPro
   ],
   databases: [],

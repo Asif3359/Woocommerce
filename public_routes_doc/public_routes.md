@@ -10,8 +10,8 @@ Notes:
 ```bash
 curl -i \
   -H "Content-Type: application/json" \
-  -X POST http://localhost:3000/api/auth/register \
-  -d '{"email":"asifahammednishst@gmail.com","password":"404asif404","name":"Asif Ahammed"}'
+  -X POST https://woocommerce-1dee.onrender.com/api/auth/register \
+  -d '{"email":"asifahammed359@gmail.com","password":"404asif404","name":"Asif Ahammed"}'
 ```
 
 ---
