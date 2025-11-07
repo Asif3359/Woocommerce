@@ -33,6 +33,19 @@ const ProductSchema = new Schema(
       required: true,
       trim: true,
     },
+    quantity: {
+      amount: {
+        type: Number,
+        required: true,
+        default: 1
+      },
+      unit: {
+        type: String,
+        enum: ['gm', 'kg', 'ml', 'l', 'piece', 'pack'],
+        required: true,
+        default: 'pack'
+      }
+    },
     brand: {
       type: String,
       required: true,

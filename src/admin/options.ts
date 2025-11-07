@@ -131,19 +131,59 @@ const options: AdminJSOptions = {
             isRequired: true,
           },
           image: {
+            type: 'string',
             isRequired: false,
           },
           category: {
             isRequired: true,
+            availableValues: [
+              { value: 'Vegetable', label: 'Vegetable' },
+              { value: 'Fruits', label: 'Fruits' },
+              { value: 'Beverages', label: 'Beverages' },
+              { value: 'Grocery', label: 'Grocery' },
+              { value: 'Edible oil', label: 'Edible Oil' },
+              { value: 'Household', label: 'Household' },
+              { value: 'Babycare', label: 'Babycare' },
+            ],
+          },
+          'quantity.amount': {
+            label: 'Quantity Amount',
+            type: 'number',
+            isRequired: true,
+            props: {
+              step: '0.1',
+              min: 0.1,
+            },
+          },
+          'quantity.unit': {
+            label: 'Quantity Unit',
+            type: 'string',
+            isRequired: true,
+            availableValues: [
+              { value: 'gm', label: 'Grams (gm)' },
+              { value: 'kg', label: 'Kilograms (kg)' },
+              { value: 'ml', label: 'Milliliters (ml)' },
+              { value: 'l', label: 'Liters (l)' },
+              { value: 'piece', label: 'Piece' },
+              { value: 'pack', label: 'Pack' },
+            ],
           },
           brand: {
             isRequired: true,
           },
           rating: {
             isRequired: false,
+            props: {
+              step: '0.1',
+              min: 0,
+              max: 5,
+            },
           },
           reviews: {
             isRequired: false,
+            props: {
+              min: 0,
+            },
           },
           inStock: {
             isVisible: { list: true, filter: true, show: true, edit: true },
@@ -164,6 +204,12 @@ const options: AdminJSOptions = {
             isVisible: { list: false, filter: true, show: true, edit: false }
           },
         },
+        listProperties: ['name', 'category', 'price', 'quantity.amount', 'quantity.unit', 'inStock', 'isActive', 'createdAt'],
+        filterProperties: ['name', 'category', 'brand', 'inStock', 'isActive', 'createdAt'],
+        sort: {
+          direction: 'desc',
+          sortBy: 'createdAt',
+        },
         actions: {
           new: {
             before: async (request) => {
@@ -174,6 +220,10 @@ const options: AdminJSOptions = {
               // Ensure reviews is non-negative
               if (request.payload.reviews !== undefined) {
                 request.payload.reviews = Math.max(0, parseInt(request.payload.reviews));
+              }
+              // Ensure quantity amount is positive
+              if (request.payload['quantity.amount'] !== undefined) {
+                request.payload['quantity.amount'] = Math.max(0.1, parseFloat(request.payload['quantity.amount']));
               }
               return request;
             },
@@ -188,8 +238,18 @@ const options: AdminJSOptions = {
               if (request.payload.reviews !== undefined) {
                 request.payload.reviews = Math.max(0, parseInt(request.payload.reviews));
               }
+              // Ensure quantity amount is positive
+              if (request.payload['quantity.amount'] !== undefined) {
+                request.payload['quantity.amount'] = Math.max(0.1, parseFloat(request.payload['quantity.amount']));
+              }
               return request;
             },
+          },
+          delete: {
+            isVisible: true,
+          },
+          bulkDelete: {
+            isVisible: true,
           },
         },
       },
