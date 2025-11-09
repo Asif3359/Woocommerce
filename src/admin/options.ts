@@ -3,6 +3,7 @@ import componentLoader from './component-loader.js';
 import User from '../db/user.js';
 import { dark, light, noSidebar } from '@adminjs/themes';
 import Product from '../db/product.js';
+import Order from '../db/order.js';
 
 const options: AdminJSOptions = {
   defaultTheme: dark.id,
@@ -249,6 +250,140 @@ const options: AdminJSOptions = {
             isVisible: true,
           },
           bulkDelete: {
+            isVisible: true,
+          },
+        },
+      },
+    },
+    {
+      resource: Order,
+      options: {
+        navigation: {
+          name: 'Orders',
+          icon: 'ShoppingBag',
+        },
+        properties: {
+          _id: {
+            isVisible: { list: true, filter: true, show: true, edit: false },
+          },
+          user: {
+            isVisible: { list: true, filter: true, show: true, edit: false },
+            type: 'reference',
+          },
+          userEmail: {
+            isVisible: { list: true, filter: true, show: true, edit: false },
+            type: 'string',
+          },
+          items: {
+            type: 'mixed',
+            isArray: true,
+            isVisible: { list: false, filter: false, show: true, edit: false },
+          },
+          totalAmount: {
+            isVisible: { list: true, filter: true, show: true, edit: false },
+            type: 'currency',
+            props: {
+              currency: 'INR',
+            },
+          },
+          paymentStatus: {
+            isVisible: { list: true, filter: true, show: true, edit: true },
+            isRequired: true,
+            availableValues: [
+              { value: 'unpaid', label: 'Unpaid' },
+              { value: 'paid', label: 'Paid' },
+            ],
+          },
+          paymentMethod: {
+            isVisible: { list: true, filter: true, show: true, edit: false },
+            availableValues: [
+              { value: 'stripe', label: 'Stripe' },
+              { value: 'cash_on_delivery', label: 'Cash on Delivery' },
+            ],
+          },
+          stripePaymentIntentId: {
+            isVisible: { list: false, filter: false, show: true, edit: false },
+            type: 'string',
+          },
+          'shippingAddress.street': {
+            label: 'Street',
+            isVisible: { list: false, filter: false, show: true, edit: false },
+          },
+          'shippingAddress.city': {
+            label: 'City',
+            isVisible: { list: true, filter: true, show: true, edit: false },
+          },
+          'shippingAddress.state': {
+            label: 'State',
+            isVisible: { list: false, filter: true, show: true, edit: false },
+          },
+          'shippingAddress.zipCode': {
+            label: 'Zip Code',
+            isVisible: { list: false, filter: false, show: true, edit: false },
+          },
+          'shippingAddress.country': {
+            label: 'Country',
+            isVisible: { list: false, filter: true, show: true, edit: false },
+          },
+          'shippingAddress.email': {
+            label: 'Email',
+            isVisible: { list: true, filter: true, show: true, edit: false },
+          },
+          'shippingAddress.phone': {
+            label: 'Phone',
+            isVisible: { list: false, filter: false, show: true, edit: false },
+          },
+          status: {
+            isVisible: { list: true, filter: true, show: true, edit: true },
+            isRequired: true,
+            availableValues: [
+              { value: 'pending', label: 'Pending' },
+              { value: 'processing', label: 'Processing' },
+              { value: 'shipped', label: 'Shipped' },
+              { value: 'delivered', label: 'Delivered' },
+              { value: 'cancelled', label: 'Cancelled' },
+            ],
+          },
+          createdAt: {
+            isVisible: { list: true, filter: true, show: true, edit: false },
+          },
+          updatedAt: {
+            isVisible: { list: false, filter: true, show: true, edit: false },
+          },
+        },
+        listProperties: ['_id', 'user', 'userEmail', 'totalAmount', 'paymentStatus', 'paymentMethod', 'status', 'shippingAddress.city', 'shippingAddress.email', 'createdAt'],
+        filterProperties: ['_id', 'user', 'userEmail', 'paymentStatus', 'paymentMethod', 'status', 'shippingAddress.city', 'shippingAddress.state', 'shippingAddress.country', 'shippingAddress.email', 'createdAt', 'updatedAt'],
+        sort: {
+          direction: 'desc',
+          sortBy: 'createdAt',
+        },
+        actions: {
+          edit: {
+            isVisible: true,
+            before: async (request) => {
+              // Only allow editing paymentStatus and status
+              const allowedFields = ['paymentStatus', 'status'];
+              const filteredPayload: Record<string, unknown> = {};
+              
+              for (const field of allowedFields) {
+                if (field in request.payload) {
+                  filteredPayload[field] = request.payload[field];
+                }
+              }
+              
+              return {
+                ...request,
+                payload: filteredPayload,
+              };
+            },
+          },
+          delete: {
+            isVisible: true,
+          },
+          show: {
+            isVisible: true,
+          },
+          list: {
             isVisible: true,
           },
         },

@@ -2,6 +2,7 @@ import mongoose from 'mongoose';
 import { Database, Resource } from '@adminjs/mongoose';
 import AdminJS from 'adminjs';
 import Product from './product.js';
+import Order from './order.js';
 
 AdminJS.registerAdapter({ Database, Resource });
 

@@ -18,12 +18,13 @@ import passport from './auth/passport.js';
 import authRouter from './routes/auth.js';
 import dashboardRouter from './routes/dashboard.js';
 import productRouter from './routes/product.js';
+import orderRouter from './routes/order.js';
+import paymentRouter from './routes/payment.js';
 
 const port = Number(process.env.PORT) || 3000;
 
 const start = async () => {
   const app = express();
-  app.use(express.json());
   
   const __dirname = url.fileURLToPath(new URL('.', import.meta.url));
   const projectRoot = path.resolve(__dirname, '..');
@@ -33,6 +34,15 @@ const start = async () => {
 
   // Initialize database first
   await initializeDb();
+
+  // Stripe webhook route must be registered before express.json() middleware
+  // to receive raw body for signature verification (only if webhook secret is configured)
+  // if (process.env.STRIPE_WEBHOOK_SECRET) {
+  //   app.use('/api/payment/webhook', express.raw({ type: 'application/json' }));
+  // }
+
+  // JSON parsing middleware for all other routes
+  app.use(express.json());
 
   // Session configuration
   app.use(
@@ -102,6 +112,8 @@ const start = async () => {
   // API routes
   app.use('/api/auth', authRouter);
   app.use('/api/products', productRouter);
+  app.use('/api/orders', orderRouter);
+  app.use('/api/payment', paymentRouter);
   
   if (admin) {
     app.use('/api/dashboard', dashboardRouter);
